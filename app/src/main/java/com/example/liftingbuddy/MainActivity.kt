@@ -38,6 +38,10 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 
+const val delimiter = "::"
+const val programSignal = "~"
+const val saveFile = "entries.txt"
+
 class MainActivity : ComponentActivity() {
 
     private var file = File("")
@@ -49,13 +53,13 @@ class MainActivity : ComponentActivity() {
         init()
         setContent {
             LiftingBuddyTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val exercise = remember { mutableStateOf("") }
                     val editing = remember { mutableStateOf(false) }
+
                     if(!editing.value) {
                         HomeScreen(onAdd = {editing.value = true; exercise.value=""},
                                    onEdit = {editing.value=true; exercise.value=it})
@@ -68,13 +72,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun init() {
-        file = File(this.filesDir, "entries.txt")
+        file = File(this.filesDir, saveFile)
         if(!file.exists()) {
             file.createNewFile()
         } else {
             for (line in file.readLines()) {
-                val parent = line.split("::")[0]
-                if(parent == "~") {
+                val parent = line.split(delimiter)[0]
+                if(parent == programSignal) {
                     progs.add(Program(line))
                 } else {
                     if(map[parent] == null) {
@@ -82,7 +86,6 @@ class MainActivity : ComponentActivity() {
                     }
                     map[parent]!!.add(Exercise(line))
                 }
-
             }
         }
     }
@@ -90,9 +93,12 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun HomeScreen(onAdd : () -> Unit, onEdit : (String) -> Unit, modifier : Modifier = Modifier) {
         LazyColumn {
+            //Each exercise gets an "entry"
             items(items=map.keys.toList()) { i ->
                 ExerciseEntryDisplay(i, onEdit)
             }
+
+            //The add exercise at the bottom
             items(1) {
                 Row(modifier.fillMaxWidth(),
                     horizontalArrangement=Arrangement.Center) {
@@ -106,8 +112,9 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("SimpleDateFormat")
     @Composable
-    fun ExerciseEntryEdit(name : String, modifier : Modifier = Modifier, ref : () -> Unit = {}) {
+    fun ExerciseEntryEdit(name : String, ref : () -> Unit, modifier : Modifier = Modifier) {
         LazyColumn {
+            //The exercise name
             items(1) {
                 Row(
                     modifier = modifier.fillMaxWidth(),
@@ -123,51 +130,66 @@ class MainActivity : ComponentActivity() {
                     )
 
                 }
-                for (i in map[name]!!) {
+                if(progExists(name)) {
                     Row(
-                        modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    )
-                    {
-                        val items = i.displayParts()
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[0])
-                        }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[1], modifier = modifier.align(Alignment.Center))
-                        }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[2], modifier = modifier.align(Alignment.Center))
-                        }
-                        //.border(width = 4.dp, color = Color.White).padding(8.dp).
-                        Box(modifier.weight(0.75f)) {
-                            Button(onClick = { map[name]!!.remove(i); save(); ref() },
-                                   modifier = modifier.align(Alignment.CenterEnd)) {
-                                Text("-")
-                            }
-                        }
-                    }
-                }
+                        modifier = modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "MAX: ${getProg(name)?.max} LBS", style = TextStyle(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp,
+                                color = Color.White
+                            )
+                        )
 
-                val addSuggestion : Pair<Boolean, List<String>> = findSuggestion(name)
-                if(addSuggestion.first) {
-                    Row(
-                        modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    )
-                    {
-                        val items = addSuggestion.second
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[0])
-                        }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[1], modifier = modifier.align(Alignment.Center), color = Color(0xFFD32F2F))
-                        }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[2], modifier = modifier.align(Alignment.CenterEnd), color = Color(0xFFD32F2F))
+                    }
+                }
+            }
+
+            //The main item/history rows
+            items(items=map[name]!!) {i ->
+                Row(
+                    modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                )
+                {
+                    val items = i.displayParts()
+                    Box(modifier.border(width = 4.dp,
+                        color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1.2f)) {
+                        Text(items[0], style = TextStyle(color= getEntryColor(i)))
+                    }
+                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+                        Text(items[1], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
+                    }
+                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+                        Text(items[2], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
+                    }
+                    Box(modifier.weight(0.75f)) {
+                        Button(onClick = { map[name]!!.remove(i); save(); ref() },
+                            modifier = modifier.align(Alignment.CenterEnd)) {
+                            Text("-")
                         }
                     }
                 }
+            }
+
+            //The suggestion and "add" rows
+            items(1) {
+                SuggestionRow(name, firstWeight = 0.2f, lastAlignment = Alignment.Center, editing = true,
+                    onSubmit = {
+                        val lst = findSuggestion(name)
+                        map[name]!!.add(
+                            Exercise(
+                                name,
+                                lst.second[1].split("x")[0].trim().toInt(),
+                                lst.second[1].split("x")[1].trim().toInt(),
+                                lst.second[2].split("lbs")[0].trim().toInt()
+                            )
+                        )
+                        save()
+                        ref()})
 
                 Row(
                     modifier.fillMaxWidth(),
@@ -176,10 +198,10 @@ class MainActivity : ComponentActivity() {
                     val sets = remember { mutableStateOf("") }
                     val reps = remember { mutableStateOf("") }
                     val weight = remember { mutableStateOf("") }
-                    Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
+                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1.2f)) {
                         Text(SimpleDateFormat("EEE, MMM dd").format(Date()))
                     }
-                    Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
+                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
                         Row(modifier = modifier.align(Alignment.Center)) {
                             BasicTextField(
                                 value = sets.value,
@@ -194,7 +216,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-                    Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
+                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
                         Row(modifier = modifier.align(Alignment.Center)) {
                             BasicTextField(
                                 value = weight.value,
@@ -229,116 +251,95 @@ class MainActivity : ComponentActivity() {
     fun ExerciseEntryDisplay(name : String, onEdit : (String) -> Unit, modifier : Modifier = Modifier) {
         val expanded = remember{ mutableStateOf(false) }
         Column {
+            //Just the header for each exercise
             Row(
-                modifier = modifier.fillMaxWidth().background(Color.LightGray),
+                modifier = modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
                 Button(onClick = { onEdit(name) }) {
                     Text("+")
                 }
+                val append = if(progExists(name)) "*" else ""
                 Text(
-                    text = " ${name.uppercase()} ", style = TextStyle(
+                    text = " $append${name.uppercase()} ", style = TextStyle(
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp,
-                        color = Color.DarkGray
+                        color = Color.White
                     )
                 )
 
                 Button(onClick = { expanded.value = !expanded.value }) {
                     if (expanded.value) {
-                        Text("^")
+                        Text("∧")
                     } else {
-                        Text("v")
+                        Text("∨")
                     }
                 }
             }
 
+            //Then the entries themselves if expanded
             if (expanded.value) {
                 for (i in map[name]!!) {
                     Row(
                         modifier.fillMaxWidth(),
-//                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     )
                     {
                         val items = i.displayParts()
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
+                        Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
                             Text(items[0])
                         }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
+                        Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
                             Text(items[1], modifier = modifier.align(Alignment.Center))
                         }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
+                        Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
                             Text(items[2], modifier = modifier.align(Alignment.CenterEnd))
                         }
                     }
                 }
 
-                val addSuggestion : Pair<Boolean, List<String>> = findSuggestion(name)
-                if(addSuggestion.first) {
-                    Row(
-                        modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    )
-                    {
-                        val items = addSuggestion.second
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[0])
-                        }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[1], modifier = modifier.align(Alignment.Center), color = Color(0xFFD32F2F))
-                        }
-                        Box(modifier.border(width = 4.dp, color = Color.White).padding(12.dp).weight(1f)) {
-                            Text(items[2], modifier = modifier.align(Alignment.CenterEnd), color = Color(0xFFD32F2F))
-                        }
-                    }
-                }
+                SuggestionRow(name)
+
             }
         }
     }
 
-    private fun findSuggestion(exercise : String) : Pair<Boolean, List<String>> {
-        for(p in progs) {
-            if(p.exercise == exercise) {
-                val arr = p.weeks
-                var lastMatch = -1
-                for(entry in map[exercise]!!) {
-                    for(idx in lastMatch+1 until arr.size) {
-                        if(entry.sets == arr[idx].first
-                            && entry.reps == arr[idx].second
-                            && entry.weight == arr[idx].third) {
-                            lastMatch = idx
-                            break
-                        }
+    @Composable
+    fun SuggestionRow(name : String, modifier : Modifier = Modifier, firstWeight : Float = 1f, lastAlignment : Alignment = Alignment.CenterEnd, editing : Boolean = false, onSubmit : () -> Unit = {}) {
+        val addSuggestion : Pair<Boolean, List<String>> = findSuggestion(name)
+        if(!addSuggestion.first) return
+
+        Row(
+            modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        )
+        {
+            val items = addSuggestion.second
+            Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(firstWeight)) {
+                Text(items[0],
+                    modifier = modifier.align(Alignment.Center),
+                    color = Color(getColor(R.color.suggestion_color)))
+            }
+            Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+                Text(items[1],
+                    modifier = modifier.align(Alignment.Center),
+                    color = Color(getColor(R.color.suggestion_color)))
+            }
+            Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+                Text(items[2],
+                    modifier = modifier.align(lastAlignment),
+                    color = Color(getColor(R.color.suggestion_color)))
+            }
+            if(editing && addSuggestion.second[0] != "") {
+                Box(modifier.weight(0.5f)) {
+                    Button(onClick = onSubmit,
+                        modifier = modifier.align(Alignment.CenterEnd)) {
+                        Text("+")
                     }
                 }
-
-                if(lastMatch == arr.size - 1) {
-                    return Pair(true, listOf("", "1 x 1", "max lbs"))
-                }
-
-                val setRep = "" + arr[lastMatch + 1].first + " x " + arr[lastMatch + 1].second
-                val weight = "" + arr[lastMatch + 1].third + " lbs"
-
-                return Pair(true, listOf("", setRep, weight))
             }
         }
-        return Pair(false, listOf())
-    }
-
-    private fun save() {
-        var fil = ""
-        for(key in map.keys) {
-            for(item in map[key]!!) {
-                fil += item.fileString() + "\n"
-            }
-        }
-        for(prog in progs) {
-            fil += prog.fileString() + "\n"
-        }
-
-        file.writeText(fil)
     }
 
     @Composable
@@ -431,6 +432,50 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun findSuggestion(exercise : String) : Pair<Boolean, List<String>> {
+        for(p in progs) {
+            if(p.exercise == exercise) {
+                val arr = p.weeks
+                var lastMatch = -1
+                for(entry in map[exercise]!!) {
+                    for(idx in lastMatch+1 until arr.size) {
+                        if(entry.sets == arr[idx].first
+                            && entry.reps == arr[idx].second
+                            && entry.weight == arr[idx].third) {
+                            lastMatch = idx
+                            break
+                        }
+                    }
+                }
+
+                if(lastMatch == arr.size - 1) {
+                    return Pair(true, listOf("", "1 x 1", "max lbs"))
+                }
+
+                val hl = if(lastMatch % 2 == 0) "L" else "H"
+                val setRep = "" + arr[lastMatch + 1].first + " x " + arr[lastMatch + 1].second
+                val weight = "" + arr[lastMatch + 1].third + " lbs"
+
+                return Pair(true, listOf(hl, setRep, weight))
+            }
+        }
+        return Pair(false, listOf())
+    }
+
+    private fun save() {
+        var fil = ""
+        for(key in map.keys) {
+            for(item in map[key]!!) {
+                fil += item.fileString() + "\n"
+            }
+        }
+        for(prog in progs) {
+            fil += prog.fileString() + "\n"
+        }
+
+        file.writeText(fil)
+    }
+
     private fun deleteProg(name : String) {
         for(idx in progs.indices) {
             if(progs[idx].exercise == name) {
@@ -450,28 +495,56 @@ class MainActivity : ComponentActivity() {
         return false
     }
 
+    private fun getProg(name : String)  : Program? {
+        for(prog in progs) {
+            if(prog.exercise == name) {
+                return prog
+            }
+        }
+        return null
+    }
+
+    private fun getEntryColor(item : Exercise) : Color {
+        val prog : Program = getProg(item.parent) ?: return Color.White
+
+        return if(Triple(item.sets, item.reps, item.weight) in prog.weeks) {
+            Color(getColor(R.color.match_color))
+        } else {
+            Color.White
+        }
+    }
+
 }
 
-
-
-class Program(val exercise : String, private val max : Int) {
-    val weeks : Array<Triple<Int, Int, Int>> //Sets, reps, weight
+class Program(val exercise : String, val max : Int) {
+    val weeks : Array<Triple<Int, Int, Int>> = Array(16) { i -> Triple(i, i, i)}
 
     init {
-        weeks = Array(10) {i -> Triple(i, i, max)}
-        weeks[1] = Triple(0, 0, 0)
-        //TODO: Update with meaningful weight logic
+        weeks[0] = Triple(4, 10, roundToFive(0.65 * max))
+        weeks[2] = Triple(4, 8, roundToFive(0.7 * max))
+        weeks[4] = Triple(3, 8, roundToFive(0.75 * max))
+        weeks[6] = Triple(4, 5, roundToFive(0.8 * max))
+        weeks[8] = Triple(3, 5, roundToFive(0.85 * max))
+        weeks[10] = Triple(4, 3, roundToFive(0.9 * max))
+        weeks[12] = Triple(3, 3, roundToFive(0.95 * max))
+        weeks[14] = Triple(3, 2, max)
+
+        for(i in 1 until 16 step 2) {
+            weeks[i] = weeks[i-1]
+        }
+    }
+
+    private fun roundToFive(num : Double) : Int {
+        return (Math.round(num / 5.0) * 5).toInt()
     }
 
     constructor(str : String) : this(
-        str.split("::")[1],
-        str.split("::")[2].toInt()
+        str.split(delimiter)[1],
+        str.split(delimiter)[2].toInt()
     )
 
     fun fileString() : String {
-        val del = "::"
-        val signal = "~"
-        return "$signal$del$exercise$del$max"
+        return "$programSignal$delimiter$exercise$delimiter$max"
     }
 
     override fun hashCode(): Int {
@@ -486,7 +559,7 @@ class Program(val exercise : String, private val max : Int) {
     }
 }
 
-class Exercise(private val parent : String,
+class Exercise(val parent : String,
                val sets : Int,
                val reps : Int,
                val weight : Int,
@@ -502,16 +575,15 @@ class Exercise(private val parent : String,
     )
 
     constructor(str : String) : this(
-        str.split("::")[0],
-        str.split("::")[1].toInt(),
-        str.split("::")[2].toInt(),
-        str.split("::")[3].toInt(),
-        str.split("::")[4]
+        str.split(delimiter)[0],
+        str.split(delimiter)[1].toInt(),
+        str.split(delimiter)[2].toInt(),
+        str.split(delimiter)[3].toInt(),
+        str.split(delimiter)[4]
     )
 
     fun fileString() : String {
-        val del = "::"
-        return "$parent$del$sets$del$reps$del$weight$del$date"
+        return "$parent$delimiter$sets$delimiter$reps$delimiter$weight$delimiter$date"
     }
 
     fun displayParts() : List<String> {
