@@ -2,6 +2,7 @@ package com.example.liftingbuddy
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -41,6 +42,7 @@ import java.util.Date
 const val delimiter = "::"
 const val programSignal = "~"
 const val saveFile = "entries.txt"
+const val TAG = "DEBUG"
 
 class MainActivity : ComponentActivity() {
 
@@ -72,6 +74,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun init() {
+        Log.d(TAG,"INIT")
         file = File(this.filesDir, saveFile)
         if(!file.exists()) {
             file.createNewFile()
@@ -146,51 +149,10 @@ class MainActivity : ComponentActivity() {
 
                     }
                 }
-            }
 
-            //The main item/history rows
-            items(items=map[name]!!) {i ->
-                Row(
-                    modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                )
-                {
-                    val items = i.displayParts()
-                    Box(modifier.border(width = 4.dp,
-                        color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1.2f)) {
-                        Text(items[0], style = TextStyle(color= getEntryColor(i)))
-                    }
-                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                        Text(items[1], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
-                    }
-                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                        Text(items[2], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
-                    }
-                    Box(modifier.weight(0.75f)) {
-                        Button(onClick = { map[name]!!.remove(i); save(); ref() },
-                            modifier = modifier.align(Alignment.CenterEnd)) {
-                            Text("-")
-                        }
-                    }
-                }
-            }
+                println("HEADER DONE")
 
             //The suggestion and "add" rows
-            items(1) {
-                SuggestionRow(name, firstWeight = 0.2f, lastAlignment = Alignment.Center, editing = true,
-                    onSubmit = {
-                        val lst = findSuggestion(name)
-                        map[name]!!.add(
-                            Exercise(
-                                name,
-                                lst.second[1].split("x")[0].trim().toInt(),
-                                lst.second[1].split("x")[1].trim().toInt(),
-                                lst.second[2].split("lbs")[0].trim().toInt()
-                            )
-                        )
-                        save()
-                        ref()})
-
                 Row(
                     modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -243,6 +205,49 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                println("ADD ROW")
+                SuggestionRow(name, firstWeight = 0.2f, lastAlignment = Alignment.Center, editing = true,
+                    onSubmit = {
+                        val lst = findSuggestion(name)
+                        map[name]!!.add(
+                            Exercise(
+                                name,
+                                lst.second[1].split("x")[0].trim().toInt(),
+                                lst.second[1].split("x")[1].trim().toInt(),
+                                lst.second[2].split("lbs")[0].trim().toInt()
+                            )
+                        )
+                        save()
+                        ref()})
+                println("SUGGESTION OW")
+            }
+
+            //The main item/history rows
+            items(items=map[name]!!.reversed()) {i ->
+                println(i)
+                Row(
+                    modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                )
+                {
+                    val items = i.displayParts()
+                    Box(modifier.border(width = 4.dp,
+                        color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1.2f)) {
+                        Text(items[0], style = TextStyle(color= getEntryColor(i)))
+                    }
+                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+                        Text(items[1], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
+                    }
+                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+                        Text(items[2], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
+                    }
+                    Box(modifier.weight(0.75f)) {
+                        Button(onClick = { map[name]!!.remove(i); save(); ref() },
+                            modifier = modifier.align(Alignment.CenterEnd)) {
+                            Text("-")
+                        }
+                    }
+                }
             }
         }
     }
@@ -280,7 +285,8 @@ class MainActivity : ComponentActivity() {
 
             //Then the entries themselves if expanded
             if (expanded.value) {
-                for (i in map[name]!!) {
+                SuggestionRow(name)
+                for (i in map[name]!!.reversed()) {
                     Row(
                         modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -298,8 +304,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-
-                SuggestionRow(name)
 
             }
         }
