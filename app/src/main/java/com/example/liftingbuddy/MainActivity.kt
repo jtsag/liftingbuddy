@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,17 +21,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.SnapshotStateSet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -65,14 +68,18 @@ class MainActivity : ComponentActivity() {
             LiftingBuddyTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = Color.Black//MaterialTheme.colorScheme.background
                 ) {
                     val exercise = remember { mutableStateOf("") }
                     val editing = remember { mutableStateOf(false) }
+                    val selectedFilters = remember {mutableStateSetOf<String>()}
 
                     if(!editing.value) {
-                        HomeScreen(onAdd = {editing.value = true; exercise.value=""},
-                                   onEdit = {editing.value=true; exercise.value=it})
+                        HomeScreen(
+                            onAdd = {editing.value = true; exercise.value=""},
+                            onEdit = {editing.value=true; exercise.value=it},
+                            selectedFilters = selectedFilters
+                        )
                     } else {
                         EditScreen(exercise.value, onBack = {editing.value = false})
                     }
@@ -120,11 +127,34 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun HomeScreen(onAdd : () -> Unit, onEdit : (String) -> Unit, modifier : Modifier = Modifier) {
+    fun HomeScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, selectedFilters: SnapshotStateSet<String>, modifier: Modifier = Modifier) {
         LazyColumn {
+            // Title
+            items(1) {
+                Row(modifier.fillMaxWidth()) {
+                    Spacer(modifier.weight(0.4f))
+                    Text(
+                        "LIFTING BUDDY",
+                        style=TextStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 36.sp,
+                            color = Color.White
+                        ),
+                        modifier=modifier.weight(1f)
+                    )
+
+                    CheckboxDropdownMenu(
+                        allTags.toList(),
+                        selectedFilters,
+                        modifier.weight(0.4f)
+                    )
+                }
+            }
             //Each exercise gets an "entry"
             items(items=map.keys.toList()) { i ->
-                ExerciseEntryDisplay(i, onEdit)
+                if(selectedFilters.isEmpty() || isIncludedInFilter(i, selectedFilters)) {
+                    ExerciseEntryDisplay(i, onEdit)
+                }
             }
 
             //The add exercise at the bottom
@@ -134,6 +164,50 @@ class MainActivity : ComponentActivity() {
                     Button(onClick=onAdd) {
                         Text("Add exercise")
                     }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun CheckboxDropdownMenu(
+        items: List<String>,
+        selected: MutableSet<String>,
+        modifier : Modifier = Modifier
+    ) {
+        val expanded = remember { mutableStateOf(false) }
+
+        Box(modifier) {
+            Button(
+                onClick = {expanded.value = true},
+                Modifier.align(Alignment.CenterEnd)
+            ) {
+                Text("\u25BC")
+            }
+
+            DropdownMenu(
+                expanded = expanded.value,
+                onDismissRequest = { expanded.value = false }
+            ) {
+                items.forEach { item ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = item in selected,
+                                    onCheckedChange = { isChecked ->
+                                        if (isChecked) selected += item
+                                        else selected -= item
+                                    }
+                                )
+                                Text(item)
+                            }
+                        },
+                        onClick = {
+                            if (item in selected) selected -= item
+                            else selected += item
+                        }
+                    )
                 }
             }
         }
@@ -184,7 +258,7 @@ class MainActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = exerciseAttrs[name]!!.getAttrString(),
+                            text = "Tags: ${exerciseAttrs[name]!!.getAttrString()}",
                             style = subtitleStyle,
                             modifier = modifier.weight(1f)
                         )
@@ -426,7 +500,7 @@ class MainActivity : ComponentActivity() {
 
                             Box {
                                 Button(onClick = { expanded.value = true }) {
-                                    Text("Options")
+                                    Text("\u2630")
                                 }
 
                                 DropdownMenu(
@@ -656,5 +730,15 @@ class MainActivity : ComponentActivity() {
         } else {
             Color.White
         }
+    }
+
+    private fun isIncludedInFilter(name: String, filter: SnapshotStateSet<String>) : Boolean {
+        // Right now adding multiple filters is an "or"
+        for(attr in filter) {
+            if(exerciseAttrs[name]!!.tags.contains(attr)) {
+                return true
+            }
+        }
+        return false
     }
 }
