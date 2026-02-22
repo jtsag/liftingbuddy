@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.liftingbuddy.ui.theme.LiftingBuddyTheme
@@ -41,14 +45,16 @@ import java.util.Date
 
 const val delimiter = "::"
 const val programSignal = "~"
+const val exerciseSignal = "|"
 const val saveFile = "entries.txt"
 const val TAG = "DEBUG"
 
 class MainActivity : ComponentActivity() {
 
     private var file = File("")
-    private val map : MutableMap<String, ArrayList<Exercise>> = mutableMapOf()
+    private val map : MutableMap<String, ArrayList<SessionEntry>> = mutableMapOf()
     private val progs : MutableList<Program> = mutableListOf()
+    private val exerciseAttrs : MutableMap<String, Exercise> = mutableMapOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,14 +86,19 @@ class MainActivity : ComponentActivity() {
             file.createNewFile()
         } else {
             for (line in file.readLines()) {
-                val parent = line.split(delimiter)[0]
-                if(parent == programSignal) {
-                    progs.add(Program(line))
-                } else {
-                    if(map[parent] == null) {
-                        map[parent] = arrayListOf()
+                when (val parent = line.split(delimiter)[0]) {
+                    programSignal -> {
+                        progs.add(Program(line))
                     }
-                    map[parent]!!.add(Exercise(line))
+                    exerciseSignal -> {
+                        exerciseAttrs[line.split(delimiter)[1]] = Exercise(line)
+                    }
+                    else -> {
+                        if (map[parent] == null) {
+                            map[parent] = arrayListOf()
+                        }
+                        map[parent]!!.add(SessionEntry(line))
+                    }
                 }
             }
         }
@@ -116,6 +127,16 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SimpleDateFormat")
     @Composable
     fun ExerciseEntryEdit(name : String, ref : () -> Unit, modifier : Modifier = Modifier) {
+        val subtitleStyle = TextStyle(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            color = Color.White
+        )
+        val titleStyle = TextStyle(
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp,
+            color = Color.White
+        )
         LazyColumn {
             //The exercise name
             items(1) {
@@ -125,13 +146,9 @@ class MainActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = " ${name.uppercase()} ", style = TextStyle(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 24.sp,
-                            color = Color.White
-                        )
+                        text = " ${name.uppercase()} ",
+                        style = titleStyle
                     )
-
                 }
                 if(progExists(name)) {
                     Row(
@@ -140,17 +157,25 @@ class MainActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "MAX: ${getProg(name)?.max} LBS", style = TextStyle(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 16.sp,
-                                color = Color.White
-                            )
+                            text = "MAX: ${getProg(name)?.max} LBS",
+                            style = subtitleStyle
+                        )
+                    }
+                }
+                if(exerciseAttrs[name] != null) {
+                    Row(
+                        modifier = modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = exerciseAttrs[name]!!.getAttrString(),
+                            style = subtitleStyle,
+                            modifier = modifier.weight(1f)
                         )
 
                     }
                 }
-
-                println("HEADER DONE")
 
             //The suggestion and "add" rows
                 Row(
@@ -168,13 +193,15 @@ class MainActivity : ComponentActivity() {
                             BasicTextField(
                                 value = sets.value,
                                 onValueChange = { sets.value = it },
-                                modifier = modifier.background(Color.White).widthIn(max=24.dp)
+                                modifier = modifier.background(Color.White).widthIn(max=24.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                             Text(" x ")
                             BasicTextField(
                                 value = reps.value,
                                 onValueChange = { reps.value = it },
-                                modifier = modifier.background(Color.White).widthIn(max=24.dp)
+                                modifier = modifier.background(Color.White).widthIn(max=24.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                         }
                     }
@@ -183,21 +210,26 @@ class MainActivity : ComponentActivity() {
                             BasicTextField(
                                 value = weight.value,
                                 onValueChange = { weight.value = it },
-                                modifier = modifier.background(Color.White).widthIn(max=24.dp)
+                                modifier = modifier.background(Color.White).widthIn(max=24.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                             Text(" lbs")
                         }
                     }
                     Box(modifier.weight(0.75f)) {
                         Button(onClick = {
-                            map[name]!!.add(
-                                Exercise(
-                                    name,
-                                    sets.value.toInt(),
-                                    reps.value.toInt(),
-                                    weight.value.toInt()
+                            try {
+                                map[name]!!.add(
+                                    SessionEntry(
+                                        name,
+                                        sets.value.toInt(),
+                                        reps.value.toInt(),
+                                        weight.value.toInt()
+                                    )
                                 )
-                            )
+                            } catch (e : Exception) {
+                                //Do nothing
+                            }
                             save()
                             ref()
                         }, modifier = modifier.align(Alignment.CenterEnd)) {
@@ -205,12 +237,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                println("ADD ROW")
                 SuggestionRow(name, firstWeight = 0.2f, lastAlignment = Alignment.Center, editing = true,
                     onSubmit = {
                         val lst = findSuggestion(name)
                         map[name]!!.add(
-                            Exercise(
+                            SessionEntry(
                                 name,
                                 lst.second[1].split("x")[0].trim().toInt(),
                                 lst.second[1].split("x")[1].trim().toInt(),
@@ -219,12 +250,10 @@ class MainActivity : ComponentActivity() {
                         )
                         save()
                         ref()})
-                println("SUGGESTION OW")
             }
 
             //The main item/history rows
             items(items=map[name]!!.reversed()) {i ->
-                println(i)
                 Row(
                     modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -263,7 +292,7 @@ class MainActivity : ComponentActivity() {
                 horizontalArrangement = Arrangement.Start
             ) {
                 Button(onClick = { onEdit(name) }) {
-                    Text("+")
+                    Text("\u270E") // Pencil icon
                 }
                 val append = if(progExists(name)) "*" else ""
                 Text(
@@ -366,33 +395,74 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } else {
-            val program = remember { mutableStateOf(false) }
+            val screenSelect = remember { mutableIntStateOf(0) }
             Column(modifier.fillMaxSize()) {
-                if (!program.value) {
-                    Row(modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        Button(onClick = onBack) {
-                            Text("Back")
-                        }
-                        Button(onClick = {program.value = true}) {
-                            if(progExists(exercise)) {
-                                Text("Delete Program")
-                            } else {
-                                Text("Add Program")
+                when (screenSelect.intValue) {
+                    0 -> {
+                        Row(
+                            modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Button(onClick = onBack) {
+                                Text("Back")
+                            }
+
+                            val expanded = remember { mutableStateOf(false) }
+
+                            Box {
+                                Button(onClick = { expanded.value = true }) {
+                                    Text("Options")
+                                }
+
+                                DropdownMenu(
+                                    expanded = expanded.value,
+                                    onDismissRequest = { expanded.value = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Edit Tags") },
+                                        onClick = { screenSelect.intValue = 1; expanded.value = false }
+                                    )
+                                    DropdownMenuItem(
+                                        text = {
+                                            if (progExists(exercise)) {
+                                                Text("Delete Program")
+                                            } else {
+                                                Text("Add Program")
+                                            }
+                                        },
+                                        onClick = { screenSelect.intValue = 2; expanded.value = false }
+                                    )
+                                }
                             }
                         }
+                        val ref = remember { mutableIntStateOf(0) }
+                        key(ref.intValue) {
+                            ExerciseEntryEdit(
+                                exercise,
+                                ref = { ref.intValue++ })
+                        }
                     }
-                    val ref = remember { mutableIntStateOf(0) }
-                    key(ref.intValue) {
-                        ExerciseEntryEdit(
-                            exercise,
-                            ref = { ref.intValue++ })
+                    1 -> {
+                        TagEdit(exercise, {screenSelect.intValue = 0})
                     }
-                } else {
-                    ProgramEdit(exercise, {program.value = false})
+                    2 -> {
+                        ProgramEdit(exercise, { screenSelect.intValue = 0 })
+                    }
                 }
             }
         }
+    }
+
+    @Composable
+    fun TagEdit(exercise : String, onBack : () -> Unit, modifier : Modifier = Modifier) {
+        Button(onClick = onBack) {
+            Text("Back")
+        }
+        //TODO
+        //have a list of current tags at the top
+        //A separator
+        //Other tags not applied to this object
+        //Add new tag option
     }
 
     @Composable
@@ -499,7 +569,7 @@ class MainActivity : ComponentActivity() {
         return false
     }
 
-    private fun getProg(name : String)  : Program? {
+    private fun getProg(name : String) : Program? {
         for(prog in progs) {
             if(prog.exercise == name) {
                 return prog
@@ -508,7 +578,7 @@ class MainActivity : ComponentActivity() {
         return null
     }
 
-    private fun getEntryColor(item : Exercise) : Color {
+    private fun getEntryColor(item : SessionEntry) : Color {
         val prog : Program = getProg(item.parent) ?: return Color.White
 
         return if(Triple(item.sets, item.reps, item.weight) in prog.weeks) {
@@ -517,102 +587,4 @@ class MainActivity : ComponentActivity() {
             Color.White
         }
     }
-
-}
-
-class Program(val exercise : String, val max : Int) {
-    val weeks : Array<Triple<Int, Int, Int>> = Array(16) { i -> Triple(i, i, i)}
-
-    init {
-        weeks[0] = Triple(4, 10, roundToFive(0.65 * max))
-        weeks[2] = Triple(4, 8, roundToFive(0.7 * max))
-        weeks[4] = Triple(3, 8, roundToFive(0.75 * max))
-        weeks[6] = Triple(4, 5, roundToFive(0.8 * max))
-        weeks[8] = Triple(3, 5, roundToFive(0.85 * max))
-        weeks[10] = Triple(4, 3, roundToFive(0.9 * max))
-        weeks[12] = Triple(3, 3, roundToFive(0.95 * max))
-        weeks[14] = Triple(3, 2, max)
-
-        for(i in 1 until 16 step 2) {
-            weeks[i] = weeks[i-1]
-        }
-    }
-
-    private fun roundToFive(num : Double) : Int {
-        return (Math.round(num / 5.0) * 5).toInt()
-    }
-
-    constructor(str : String) : this(
-        str.split(delimiter)[1],
-        str.split(delimiter)[2].toInt()
-    )
-
-    fun fileString() : String {
-        return "$programSignal$delimiter$exercise$delimiter$max"
-    }
-
-    override fun hashCode(): Int {
-        return exercise.hashCode() + 31 * max + weeks.hashCode()
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if(other == null || other !is Program) {
-            return false
-        }
-        return exercise == other.exercise && max == other.max
-    }
-}
-
-class Exercise(val parent : String,
-               val sets : Int,
-               val reps : Int,
-               val weight : Int,
-               private val date : String) {
-
-    @SuppressLint("SimpleDateFormat")
-    constructor(parent : String, sets : Int, reps : Int, weight : Int) : this (
-        parent,
-        sets,
-        reps,
-        weight,
-        SimpleDateFormat("EEE, MMM dd").format(Date())
-    )
-
-    constructor(str : String) : this(
-        str.split(delimiter)[0],
-        str.split(delimiter)[1].toInt(),
-        str.split(delimiter)[2].toInt(),
-        str.split(delimiter)[3].toInt(),
-        str.split(delimiter)[4]
-    )
-
-    fun fileString() : String {
-        return "$parent$delimiter$sets$delimiter$reps$delimiter$weight$delimiter$date"
-    }
-
-    fun displayParts() : List<String> {
-        return listOf(
-            date,
-            "$sets x $reps",
-            "$weight lbs"
-        )
-    }
-
-    override fun equals(other : Any?) : Boolean {
-        if(other == null || other !is Exercise) {
-            return false
-        }
-        return parent == other.parent && sets == other.sets
-                && reps == other.reps && weight == other.weight && date == other.date
-    }
-
-    override fun hashCode(): Int {
-        var result = parent.hashCode()
-        result = 31 * result + sets
-        result = 31 * result + reps
-        result = 31 * result + weight
-        result = 31 * result + date.hashCode()
-        return result
-    }
-
 }
