@@ -4,7 +4,11 @@ class Exercise(val name : String, val tags : MutableSet<String>) {
     constructor(line : String) : this(
         line.split(delimiter)[1],
         line.split(delimiter).drop(2).toMutableSet()
-    )
+    ) {
+        tags.remove("") // Catch empty set case
+    }
+
+
 
     fun fileString() : String {
         return "$exerciseSignal$delimiter$name$delimiter" + tags.joinToString(delimiter)
@@ -24,4 +28,8 @@ class Exercise(val name : String, val tags : MutableSet<String>) {
         }
         return name == other.name && tags == other.tags
     }
+}
+
+fun makeExerciseObject(name : String) : Exercise {
+    return Exercise(name, mutableSetOf())
 }

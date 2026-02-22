@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
     private val map : MutableMap<String, ArrayList<SessionEntry>> = mutableMapOf()
     private val progs : MutableList<Program> = mutableListOf()
     private val exerciseAttrs : MutableMap<String, Exercise> = mutableMapOf()
+    private val allTags : MutableSet<String> = mutableSetOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -102,6 +104,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        // Make sure all exercises have attributes
+        for(exerciseStr in map.keys) {
+            if (exerciseStr in exerciseAttrs.keys) continue
+            exerciseAttrs[exerciseStr] = makeExerciseObject(exerciseStr)
+        }
+
+        // Init all the tags
+        for(exerString in exerciseAttrs.keys) {
+            allTags.addAll(exerciseAttrs[exerString]!!.tags)
+        }
+        //Prebuilt tags
+        allTags.add("Favorite")
     }
 
     @Composable
@@ -227,7 +242,7 @@ class MainActivity : ComponentActivity() {
                                         weight.value.toInt()
                                     )
                                 )
-                            } catch (e : Exception) {
+                            } catch (_ : Exception) {
                                 //Do nothing
                             }
                             save()
@@ -443,7 +458,15 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     1 -> {
-                        TagEdit(exercise, {screenSelect.intValue = 0})
+                        val ref = remember { mutableIntStateOf(-2000) }
+                        key(ref.intValue) {
+                            TagEdit(
+                                exercise,
+                                onBack={screenSelect.intValue = 0},
+                                ref={ref.intValue++}
+                            )
+                        }
+
                     }
                     2 -> {
                         ProgramEdit(exercise, { screenSelect.intValue = 0 })
@@ -454,15 +477,60 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun TagEdit(exercise : String, onBack : () -> Unit, modifier : Modifier = Modifier) {
+    fun TagEdit(exercise : String, onBack : () -> Unit, ref : () -> Unit, modifier : Modifier = Modifier) {
         Button(onClick = onBack) {
             Text("Back")
         }
-        //TODO
         //have a list of current tags at the top
+        val exerTags = exerciseAttrs[exercise]!!.tags
+        Row(modifier.fillMaxWidth()) {
+            for(tag in exerTags) {
+                Button(onClick = {exerTags.remove(tag); save(); ref()}) {
+                    Row {
+                        Text(tag)
+                        Text(" x", color = Color.Red)
+                    }
+                }
+            }
+        }
         //A separator
+        Divider(color = Color(getColor(R.color.border_color)))
         //Other tags not applied to this object
+        Row(modifier.fillMaxWidth()) {
+            for(tag in (allTags - exerTags)) {
+                Button(onClick = {exerTags.add(tag); save(); ref()}) {
+                    Row {
+                        Text(tag)
+                        Text(" +", color = Color.Green)
+                    }
+                }
+            }
+        }
+        Divider(color = Color(getColor(R.color.border_color)))
         //Add new tag option
+        Row(
+            modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        )
+        {
+            Text("New tag: ")
+            val tagName = remember{mutableStateOf("")}
+            BasicTextField(
+                value = tagName.value,
+                onValueChange = { tagName.value = it },
+                modifier = modifier.background(Color.White)
+            )
+            Button(onClick={
+                if(tagName.value.trim() != "") {
+                    exerTags.add(tagName.value)
+                    allTags.add(tagName.value)
+                    save()
+                    ref()
+                }
+            }) {
+                Text("Submit")
+            }
+        }
     }
 
     @Composable
@@ -546,7 +614,9 @@ class MainActivity : ComponentActivity() {
         for(prog in progs) {
             fil += prog.fileString() + "\n"
         }
-
+        for(exStr in exerciseAttrs.keys) {
+            fil += exerciseAttrs[exStr]!!.fileString() + "\n"
+        }
         file.writeText(fil)
     }
 
