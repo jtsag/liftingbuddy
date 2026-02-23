@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
@@ -132,9 +132,8 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun HomeScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, selectedFilters: SnapshotStateSet<String>, modifier: Modifier = Modifier) {
-        LazyColumn {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // Title
-            items(1) {
                 Row(Modifier.fillMaxWidth()) {
                     Spacer(Modifier.weight(0.25f))
                     Text(
@@ -155,23 +154,22 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
-            }
+
             //Each exercise gets an "entry"
-            items(items=map.keys.toList()) { i ->
+            for(i in map.keys.toList()) {
                 if(selectedFilters.isEmpty() || isIncludedInFilter(i, selectedFilters)) {
                     ExerciseEntryDisplay(i, onEdit)
                 }
             }
 
             //The add exercise at the bottom
-            items(1) {
+
                 Box(Modifier.fillMaxWidth(),
                     contentAlignment=Alignment.Center) {
                     Button(onClick=onAdd) {
                         Text("Add exercise")
                     }
                 }
-            }
         }
     }
 
@@ -229,9 +227,8 @@ class MainActivity : ComponentActivity() {
             color = Color.White
         )
         val borderColor = colorResource(R.color.border_color)
-        LazyColumn {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             //The exercise name
-            items(1) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center,
@@ -255,7 +252,7 @@ class MainActivity : ComponentActivity() {
                 if(exerciseAttrs[name]!!.tags.isNotEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
+                        contentAlignment = Alignment.CenterStart,
                     ) {
                         Text(
                             text = "Tags: ${exerciseAttrs[name]!!.getAttrString()}",
@@ -341,10 +338,10 @@ class MainActivity : ComponentActivity() {
                         )
                         save()
                         ref()})
-            }
+
 
             //The main item/history rows
-            items(items=map[name]!!.asReversed()) {i ->
+            for (i in map[name]!!.asReversed()) {
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -423,9 +420,9 @@ class MainActivity : ComponentActivity() {
                             contentAlignment=Alignment.Center) {
                             Text(items[1])
                         }
-                        Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
-                            contentAlignment=Alignment.CenterEnd) {
-                            Text(items[2])
+                        Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f)) {
+                            Text(items[2],
+                                Modifier.align(Alignment.CenterEnd))
                         }
                     }
                 }
@@ -458,7 +455,8 @@ class MainActivity : ComponentActivity() {
                 Text(items[1],
                     color = suggColor)
             }
-            Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f)) {
+            Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                contentAlignment=lastAlignment) {
                 Text(items[2],
                     color = suggColor)
             }
@@ -751,3 +749,6 @@ class MainActivity : ComponentActivity() {
         return false
     }
 }
+
+//TODO - need to optimize column composition (reduce overhead)
+//TODO - push notifications for groups/tags (remind you it's leg day, etc.)
