@@ -25,18 +25,22 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateSet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -56,7 +60,7 @@ const val TAG = "DEBUG"
 class MainActivity : ComponentActivity() {
 
     private var file = File("")
-    private val map : MutableMap<String, ArrayList<SessionEntry>> = mutableMapOf()
+    private val map : MutableMap<String, SnapshotStateList<SessionEntry>> = mutableMapOf()
     private val progs : MutableList<Program> = mutableListOf()
     private val exerciseAttrs : MutableMap<String, Exercise> = mutableMapOf()
     private val allTags : MutableSet<String> = mutableSetOf()
@@ -68,7 +72,7 @@ class MainActivity : ComponentActivity() {
             LiftingBuddyTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color.Black//MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.background
                 ) {
                     val exercise = remember { mutableStateOf("") }
                     val editing = remember { mutableStateOf(false) }
@@ -104,7 +108,7 @@ class MainActivity : ComponentActivity() {
                     }
                     else -> {
                         if (map[parent] == null) {
-                            map[parent] = arrayListOf()
+                            map[parent] = mutableStateListOf()
                         }
                         map[parent]!!.add(SessionEntry(line))
                     }
@@ -131,8 +135,8 @@ class MainActivity : ComponentActivity() {
         LazyColumn {
             // Title
             items(1) {
-                Row(modifier.fillMaxWidth()) {
-                    Spacer(modifier.weight(0.4f))
+                Row(Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.weight(0.25f))
                     Text(
                         "LIFTING BUDDY",
                         style=TextStyle(
@@ -140,14 +144,16 @@ class MainActivity : ComponentActivity() {
                             fontSize = 36.sp,
                             color = Color.White
                         ),
-                        modifier=modifier.weight(1f)
+                        modifier=Modifier.weight(1f)
                     )
-
-                    CheckboxDropdownMenu(
+                    Box(contentAlignment=Alignment.CenterEnd,
+                        modifier=Modifier.weight(0.25f)
+                    ) {
+                        CheckboxDropdownMenu(
                         allTags.toList(),
-                        selectedFilters,
-                        modifier.weight(0.4f)
-                    )
+                        selectedFilters
+                        )
+                    }
                 }
             }
             //Each exercise gets an "entry"
@@ -159,8 +165,8 @@ class MainActivity : ComponentActivity() {
 
             //The add exercise at the bottom
             items(1) {
-                Row(modifier.fillMaxWidth(),
-                    horizontalArrangement=Arrangement.Center) {
+                Box(Modifier.fillMaxWidth(),
+                    contentAlignment=Alignment.Center) {
                     Button(onClick=onAdd) {
                         Text("Add exercise")
                     }
@@ -176,11 +182,8 @@ class MainActivity : ComponentActivity() {
         modifier : Modifier = Modifier
     ) {
         val expanded = remember { mutableStateOf(false) }
-
-        Box(modifier) {
-            Button(
-                onClick = {expanded.value = true},
-                Modifier.align(Alignment.CenterEnd)
+         Button(
+                onClick = {expanded.value = true}
             ) {
                 Text("\u25BC")
             }
@@ -210,7 +213,6 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-        }
     }
 
     @SuppressLint("SimpleDateFormat")
@@ -226,13 +228,13 @@ class MainActivity : ComponentActivity() {
             fontSize = 24.sp,
             color = Color.White
         )
+        val borderColor = colorResource(R.color.border_color)
         LazyColumn {
             //The exercise name
             items(1) {
-                Row(
-                    modifier = modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = " ${name.uppercase()} ",
@@ -240,10 +242,9 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 if(progExists(name)) {
-                    Row(
-                        modifier = modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "MAX: ${getProg(name)?.max} LBS",
@@ -251,16 +252,14 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
-                if(exerciseAttrs[name] != null) {
-                    Row(
-                        modifier = modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                if(exerciseAttrs[name]!!.tags.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "Tags: ${exerciseAttrs[name]!!.getAttrString()}",
                             style = subtitleStyle,
-                            modifier = modifier.weight(1f)
                         )
 
                     }
@@ -268,44 +267,47 @@ class MainActivity : ComponentActivity() {
 
             //The suggestion and "add" rows
                 Row(
-                    modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val sets = remember { mutableStateOf("") }
                     val reps = remember { mutableStateOf("") }
                     val weight = remember { mutableStateOf("") }
-                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1.2f)) {
+                    Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1.2f)) {
                         Text(SimpleDateFormat("EEE, MMM dd").format(Date()))
                     }
-                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                        Row(modifier = modifier.align(Alignment.Center)) {
+                    Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                        contentAlignment = Alignment.Center) {
+                        Row {
                             BasicTextField(
                                 value = sets.value,
                                 onValueChange = { sets.value = it },
-                                modifier = modifier.background(Color.White).widthIn(max=24.dp),
+                                modifier = Modifier.background(Color.White).widthIn(max=24.dp),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                             Text(" x ")
                             BasicTextField(
                                 value = reps.value,
                                 onValueChange = { reps.value = it },
-                                modifier = modifier.background(Color.White).widthIn(max=24.dp),
+                                modifier = Modifier.background(Color.White).widthIn(max=24.dp),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                         }
                     }
-                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                        Row(modifier = modifier.align(Alignment.Center)) {
+                    Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                        contentAlignment = Alignment.Center) {
+                        Row {
                             BasicTextField(
                                 value = weight.value,
                                 onValueChange = { weight.value = it },
-                                modifier = modifier.background(Color.White).widthIn(max=24.dp),
+                                modifier = Modifier.background(Color.White).widthIn(max=24.dp),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                             Text(" lbs")
                         }
                     }
-                    Box(modifier.weight(0.75f)) {
+                    Box(Modifier.weight(0.75f),
+                        contentAlignment=Alignment.CenterEnd) {
                         Button(onClick = {
                             try {
                                 map[name]!!.add(
@@ -321,7 +323,7 @@ class MainActivity : ComponentActivity() {
                             }
                             save()
                             ref()
-                        }, modifier = modifier.align(Alignment.CenterEnd)) {
+                        }) {
                             Text("Add")
                         }
                     }
@@ -342,26 +344,28 @@ class MainActivity : ComponentActivity() {
             }
 
             //The main item/history rows
-            items(items=map[name]!!.reversed()) {i ->
+            items(items=map[name]!!.asReversed()) {i ->
                 Row(
-                    modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 )
                 {
                     val items = i.displayParts()
-                    Box(modifier.border(width = 4.dp,
-                        color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1.2f)) {
+                    Box(Modifier.border(width = 4.dp,
+                        color = borderColor).padding(12.dp).weight(1.2f)) {
                         Text(items[0], style = TextStyle(color= getEntryColor(i)))
                     }
-                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                        Text(items[1], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
+                    Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                        contentAlignment=Alignment.Center) {
+                        Text(items[1], style = TextStyle(color= getEntryColor(i)))
                     }
-                    Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                        Text(items[2], modifier = modifier.align(Alignment.Center), style = TextStyle(color= getEntryColor(i)))
+                    Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                        contentAlignment=Alignment.Center) {
+                        Text(items[2], style = TextStyle(color= getEntryColor(i)))
                     }
-                    Box(modifier.weight(0.75f)) {
-                        Button(onClick = { map[name]!!.remove(i); save(); ref() },
-                            modifier = modifier.align(Alignment.CenterEnd)) {
+                    Box(Modifier.weight(0.75f),
+                        contentAlignment=Alignment.CenterEnd) {
+                        Button(onClick = { map[name]!!.remove(i); save(); ref() }) {
                             Text("-")
                         }
                     }
@@ -373,10 +377,11 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun ExerciseEntryDisplay(name : String, onEdit : (String) -> Unit, modifier : Modifier = Modifier) {
         val expanded = remember{ mutableStateOf(false) }
+        val borderColor = colorResource(R.color.border_color)
         Column {
             //Just the header for each exercise
             Row(
-                modifier = modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
@@ -404,21 +409,23 @@ class MainActivity : ComponentActivity() {
             //Then the entries themselves if expanded
             if (expanded.value) {
                 SuggestionRow(name)
-                for (i in map[name]!!.reversed()) {
+                for (i in map[name]!!.asReversed()) {
                     Row(
-                        modifier.fillMaxWidth(),
+                        Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     )
                     {
                         val items = i.displayParts()
-                        Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+                        Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f)) {
                             Text(items[0])
                         }
-                        Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                            Text(items[1], modifier = modifier.align(Alignment.Center))
+                        Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                            contentAlignment=Alignment.Center) {
+                            Text(items[1])
                         }
-                        Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
-                            Text(items[2], modifier = modifier.align(Alignment.CenterEnd))
+                        Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                            contentAlignment=Alignment.CenterEnd) {
+                            Text(items[2])
                         }
                     }
                 }
@@ -432,31 +439,33 @@ class MainActivity : ComponentActivity() {
         val addSuggestion : Pair<Boolean, List<String>> = findSuggestion(name)
         if(!addSuggestion.first) return
 
+        val borderColor = colorResource(R.color.border_color)
+        val suggColor = colorResource(R.color.suggestion_color)
+
         Row(
-            modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         )
         {
             val items = addSuggestion.second
-            Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(firstWeight)) {
+            Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(firstWeight),
+                contentAlignment=Alignment.Center) {
                 Text(items[0],
-                    modifier = modifier.align(Alignment.Center),
-                    color = Color(getColor(R.color.suggestion_color)))
+                    color = suggColor)
             }
-            Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+            Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f),
+                contentAlignment=Alignment.Center) {
                 Text(items[1],
-                    modifier = modifier.align(Alignment.Center),
-                    color = Color(getColor(R.color.suggestion_color)))
+                    color = suggColor)
             }
-            Box(modifier.border(width = 4.dp, color = Color(getColor(R.color.border_color))).padding(12.dp).weight(1f)) {
+            Box(Modifier.border(width = 4.dp, color = borderColor).padding(12.dp).weight(1f)) {
                 Text(items[2],
-                    modifier = modifier.align(lastAlignment),
-                    color = Color(getColor(R.color.suggestion_color)))
+                    color = suggColor)
             }
             if(editing && addSuggestion.second[0] != "") {
-                Box(modifier.weight(0.5f)) {
+                Box(Modifier.weight(0.5f)) {
                     Button(onClick = onSubmit,
-                        modifier = modifier.align(Alignment.CenterEnd)) {
+                        modifier = Modifier.align(Alignment.CenterEnd)) {
                         Text("+")
                     }
                 }
@@ -467,17 +476,17 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun EditScreen(exercise : String, onBack : () -> Unit, modifier : Modifier = Modifier) {
         if(exercise == "") {
-            Row(modifier.fillMaxWidth().padding(20.dp),
+            Row(Modifier.fillMaxWidth().padding(20.dp),
                 verticalAlignment=Alignment.CenterVertically) {
                 val name = remember{mutableStateOf("")}
                 Text("Name of exercise: ")
                 BasicTextField(
                     value = name.value,
                     onValueChange = { name.value = it },
-                    modifier = modifier.background(Color.White)
+                    modifier = Modifier.background(Color.White)
                 )
                 Button(onClick={
-                    map[name.value] = arrayListOf()
+                    map[name.value] = mutableStateListOf()
                     onBack()
                 }) {
                     Text("Submit")
@@ -485,11 +494,11 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             val screenSelect = remember { mutableIntStateOf(0) }
-            Column(modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
                 when (screenSelect.intValue) {
                     0 -> {
                         Row(
-                            modifier.fillMaxWidth(),
+                            Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Button(onClick = onBack) {
@@ -556,10 +565,10 @@ class MainActivity : ComponentActivity() {
             Text("Back")
         }
         //have a list of current tags at the top
-        val exerTags = exerciseAttrs[exercise]!!.tags
-        Row(modifier.fillMaxWidth()) {
-            for(tag in exerTags) {
-                Button(onClick = {exerTags.remove(tag); save(); ref()}) {
+//        val exerTags = exerciseAttrs[exercise]!!.tags
+        Row(Modifier.fillMaxWidth()) {
+            for(tag in exerciseAttrs[exercise]!!.tags) {
+                Button(onClick = {exerciseAttrs[exercise]!!.removeTag(tag); save(); ref()}) {
                     Row {
                         Text(tag)
                         Text(" x", color = Color.Red)
@@ -570,9 +579,9 @@ class MainActivity : ComponentActivity() {
         //A separator
         Divider(color = Color(getColor(R.color.border_color)))
         //Other tags not applied to this object
-        Row(modifier.fillMaxWidth()) {
-            for(tag in (allTags - exerTags)) {
-                Button(onClick = {exerTags.add(tag); save(); ref()}) {
+        Row(Modifier.fillMaxWidth()) {
+            for(tag in (allTags - exerciseAttrs[exercise]!!.tags)) {
+                Button(onClick = {exerciseAttrs[exercise]!!.addTag(tag); save(); ref()}) {
                     Row {
                         Text(tag)
                         Text(" +", color = Color.Green)
@@ -583,7 +592,7 @@ class MainActivity : ComponentActivity() {
         Divider(color = Color(getColor(R.color.border_color)))
         //Add new tag option
         Row(
-            modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         )
         {
@@ -592,11 +601,11 @@ class MainActivity : ComponentActivity() {
             BasicTextField(
                 value = tagName.value,
                 onValueChange = { tagName.value = it },
-                modifier = modifier.background(Color.White)
+                modifier = Modifier.background(Color.White)
             )
             Button(onClick={
                 if(tagName.value.trim() != "") {
-                    exerTags.add(tagName.value)
+                    exerciseAttrs[exercise]!!.addTag(tagName.value)
                     allTags.add(tagName.value)
                     save()
                     ref()
@@ -610,7 +619,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun ProgramEdit(exercise : String, onBack : () -> Unit, modifier : Modifier = Modifier) {
         if (!progExists(exercise)) {
-            Row(modifier.fillMaxWidth().padding(20.dp),
+            Row(Modifier.fillMaxWidth().padding(20.dp),
                 verticalAlignment=Alignment.CenterVertically) {
                 val max = remember{mutableStateOf("")}
                 Button(onClick = onBack) {
@@ -620,7 +629,7 @@ class MainActivity : ComponentActivity() {
                 BasicTextField(
                     value = max.value,
                     onValueChange = { max.value = it },
-                    modifier = modifier.background(Color.White)
+                    modifier = Modifier.background(Color.White)
                 )
                 Button(onClick={
                     progs.add(Program(exercise, max.value.toInt()))
@@ -631,10 +640,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } else {
-            Column(modifier.fillMaxWidth().padding(20.dp),
+            Column(Modifier.fillMaxWidth().padding(20.dp),
                 horizontalAlignment = Alignment.Start) {
                 Text("Are you sure you want to delete the current program?")
-                Row(modifier.fillMaxWidth(),
+                Row(Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
                     Button(onClick = onBack) {
                         Text("No")
